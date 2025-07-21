@@ -60,7 +60,6 @@ class Field {
 	// Jump system
 	jump(direction) {
 		if (this.jumpsRemaining <= 0) {
-			console.log("No jumps left!");
 			return;
 		}
 
@@ -142,6 +141,8 @@ class Field {
 			field[playerRow][playerCol] === '^'
 		);
 
+
+
 		return {
 			field,
 			playerRow,
@@ -208,8 +209,6 @@ class Field {
 				jumps = 2;
 				size = 4;
 		}
-
-		// let field, playerRow = 0, playerCol = 0;
 
 		// Map selection
 		if (mapType === 'P') {
