@@ -12,21 +12,30 @@ const fieldCharacter = "░";
 const pathCharacter = "*";
 
 class Field {
-	constructor(field = [[]]) {
+	constructor(field = [[]], startRow = 0, startCol = 0) {
 		this.field = field;
-
-		// Replace with your own code //
+		this.jumpsRemaining = 0;
 		// Set the home position at (0, 0) before the game starts
-		this.positionRow = 0;
-		this.positionCol = 0;
-		this.field[this.positionRow][this.positionCol] = pathCharacter;
+		this.positionRow = startRow;
+		this.positionCol = startCol;
+		// this.field[this.positionRow][this.positionCol] = pathCharacter;
 	}
 
 	// Print field //
 	print() {
 		clear();
-		for (let row of this.field) {
-			console.log(row.join(''));
+
+		for (let row = 0; row < this.field.length; row++) {
+			let rowStr = ''
+
+			for (let col = 0; col < this.field[row].length; col++) {
+				if (row === this.positionRow && col === this.positionCol) {
+					rowStr += '*';
+				} else {
+					rowStr += this.field[row][col];
+				}
+			}
+			console.log(rowStr);
 		}
 
 	}
@@ -48,17 +57,33 @@ class Field {
 		this.positionCol++;
 	}
 
-	// To check if player fell out of bound
-	checkBoundary() {
-		const numRows = this.field.length;
-		const numCols = this.field[0].length;
-
-		if (this.positionRow < 0 || this.positionRow >= numRows ||
-			this.positionCol < 0 || this.positionCol >= numCols
-		) {
-			return false;
+	// Jump system
+	jump(direction) {
+		if (this.jumpsRemaining <= 0) {
+			console.log("No jumps left!");
+			return;
 		}
-		return true;
+
+		this.clearTile();
+
+		switch (direction) {
+			case 'W': this.positionRow -= 2; break;
+			case 'S': this.positionRow += 2; break;
+			case 'A': this.positionCol -= 2; break;
+			case 'D': this.positionCol += 2; break;
+			default:
+				console.log("Invalid jump direction.");
+				return;
+		}
+		this.jumpsRemaining--;
+	}
+
+	// To check if player fell out of bound (fixed bug)
+	checkBoundary() {
+		const rowInBounds = this.positionRow >= 0 && this.positionRow < this.field.length;
+		const colInBounds = this.positionCol >= 0 && this.positionCol < this.field[0].length;
+
+		return rowInBounds && colInBounds;
 	}
 
 	// To get current tile (position)
@@ -96,8 +121,6 @@ class Field {
 			}
 			field.push(rowArr);
 		}
-		// Set player at [0][0]
-		field[0][0] = '*';
 
 		// Set hat position
 		let hatRow, hatCol;
@@ -109,13 +132,56 @@ class Field {
 
 		field[hatRow][hatCol] = '^';
 
-		return field;
+		// Set player position randomly
+		let playerRow, playerCol;
+		do {
+			playerRow = Math.floor(Math.random() * height);
+			playerCol = Math.floor(Math.random() * width);
+		} while (
+			field[playerRow][playerCol] === 'O' ||
+			field[playerRow][playerCol] === '^'
+		);
+
+		return {
+			field,
+			playerRow,
+			playerCol
+		};
+	}
+
+	// Pre-made map
+	static getPreMadeMap(size) {
+		if (size === 4) {
+			return [
+				['*', 'O', '░', '░'],
+				['░', 'O', '░', '░'],
+				['░', '░', '░', 'O'],
+				['░', 'O', 'O', '^'],
+			];
+		} else if (size === 5) {
+			return [
+				['*', 'O', '░', 'O', '░'],
+				['░', '░', '░', 'O', '░'],
+				['░', 'O', 'O', '░', 'O'],
+				['O', 'O', '░', 'O', '░'],
+				['O', '^', 'O', '░', '^'],
+			];
+		} else if (size === 6) {
+			return [
+				['*', 'O', 'O', 'O', '░', '░'],
+				['░', '░', '░', '░', '░', 'O'],
+				['O', '░', '░', '░', 'O', '░'],
+				['░', 'O', '░', 'O', 'O', '░'],
+				['O', 'O', '░', '░', '░', '░'],
+				['░', '^', '░', 'O', 'O', '░'],
+			]
+		}
 	}
 
 	static menu() {
 		console.log("=== FIND YOUR HAT ===");
 		const difficulty = prompt("Choose difficulty: \n1. Easy\n2. Medium\n3. Hard\n> ").trim();
-		const mapType = promp("Use Pre-made map (P) or Random map (R)?").toUpperCase();
+		const mapType = prompt("Use Pre-made map (P) or Random map (R)?").toUpperCase();
 	
 		let field;
 		let jumps = 2;
@@ -143,25 +209,39 @@ class Field {
 				size = 4;
 		}
 
+		// let field, playerRow = 0, playerCol = 0;
+
 		// Map selection
 		if (mapType === 'P') {
 			field = Field.getPreMadeMap(size);
 		} else if (mapType === 'R') {
-			const holePercentage = 0.3;
-			field.generateField(size, size, holePercentage);
+			const holePercentage = 0.4;
+			const result = Field.generateField(size, size, holePercentage);
+			field = result.field;
+			this.positionRow = result.playerRow;
+			this.positionCol = result.playerCol;
 		} else {
 			console.log("Invalid input. Using pre-made by default.");
 			field = Field.getPreMadeMap(size);
 		}
 
+		// Start game
+		const game = new Field(field, this.positionRow, this.positionCol);
+		game.jumpsRemaining = jumps;
+		// if (useEnemy) {
+		// 	game.enemyRow = size -1;
+		// 	game.enemyCol = size -1;
+		// }
 
+		game.startGame();
 	}
 
 	startGame() {
 		this.print();
-		console.log("Use W, A, S, D to move or X to exit game");
+		console.log("Use W, A, S, D to move,\n you also can jump with JW, JA, JS, JD\nor X to exit game");
 
 		while (true) {
+			console.log(`Jump remaining: ${this.jumpsRemaining}`)
 			const input = prompt("Move: ").toUpperCase();
 
 			if (input === 'X') {
@@ -172,23 +252,20 @@ class Field {
 			this.clearTile();
 
 			// Moving logic
-			switch (input) {
-				case 'W':
-					this.moveUp();
-					break;
-				case 'A':
-					this.moveRight();
-					break;
-				case 'S':
-					this.moveDown();
-					break;
-				case 'D':
-					this.moveRight();
-					break;
-				default:
-					console.log("Invalit input");
-					this.markTile();
-					continue;
+			if (input.startsWith('J')) {
+				const jumDir = input[1];
+				this.jump(jumDir);
+			} else {
+				switch (input) {
+					case 'W': this.moveUp(); break;
+					case 'A': this.moveLeft(); break;
+					case 'S': this.moveDown(); break;
+					case 'D': this.moveRight(); break;
+					default:
+						console.log("Invalid input");
+						this.markTile();
+						continue;
+				}
 			}
 
 			// Check after moved, player's out of bound or not
@@ -216,9 +293,4 @@ class Field {
 
 // Game Mode ON
 // Remark: Code example below should be deleted and use your own code.
-const newGame = new Field([
-	["░", "░", "O"],
-	["░", "O", "░"],
-	["░", "^", "░"],
-]);
-newGame.startGame();
+Field.menu()
