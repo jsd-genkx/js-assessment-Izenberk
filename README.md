@@ -158,6 +158,11 @@
 11. เพื่อให้ method generateField สามารถทำงานได้ จึงต้องมีการ modified constructor() เพื่อให้รับค่าเริ่มต้นของผู้เล่นด้วย และ print() มีการปรับให้ตรวจสอบตำแหน่งผู้เล่นก่อนที่จะ render
 12. ใน menu() หากผู้เล่นเลือกตัวเลือกครบแล้วจะนำไปสู่ core mechanic โดยสร้าง instant game และมีการเรียก game.startGame()
 
+#### Part 3
+- เพิ่มโหมดใหม่ NIGHTMARE
+- เพิ่มศัตรู 'X' ที่คอยไล่ในโหมด Hard และ NIGHTMARE
+- จัด functions/methods ใหม่ เพื่อแยกการทำงานเฉพาะออกมา
+
 _Notes:_<br>
 _- You can attach flowcharts, diagrams, and images as needed._<br>
 _- The purpose of this section is not to explain your code but rather to convey your thoughts and ideas._

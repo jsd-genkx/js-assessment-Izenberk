@@ -12,12 +12,15 @@ const fieldCharacter = "░";
 const pathCharacter = "*";
 
 class Field {
-	constructor(field = [[]], startRow = 0, startCol = 0) {
+	constructor(field = [[]], startRow = 0, startCol = 0, nightmare = false) {
 		this.field = field;
 		this.jumpsRemaining = 0;
 		// Set the home position at (0, 0) before the game starts
 		this.positionRow = startRow;
 		this.positionCol = startCol;
+		this.enemyRow = null;
+		this.enemyCol = null;
+		this.nightmare = nightmare
 		// this.field[this.positionRow][this.positionCol] = pathCharacter;
 	}
 
@@ -31,6 +34,8 @@ class Field {
 			for (let col = 0; col < this.field[row].length; col++) {
 				if (row === this.positionRow && col === this.positionCol) {
 					rowStr += '*';
+				} else if (row === this.enemyRow && col === this.enemyCol) {
+					rowStr += 'X'
 				} else {
 					rowStr += this.field[row][col];
 				}
@@ -62,8 +67,6 @@ class Field {
 		if (this.jumpsRemaining <= 0) {
 			return;
 		}
-
-		this.clearTile();
 
 		switch (direction) {
 			case 'W': this.positionRow -= 2; break;
@@ -98,14 +101,20 @@ class Field {
 		return false;
 	}
 
+	
 	// To clear previous tile after moved
 	clearTile() {
 		this.field[this.positionRow][this.positionCol] = "░";
 	}
 
-	// To mark where player's standing
-	markTile() {
-		this.field[this.positionRow][this.positionCol] = "*";
+	// New print() automatically render position,so we don't need markTile() anymore
+	// markTile() {
+	// 	this.field[this.positionRow][this.positionCol] = "*";
+	// }
+
+	// Create random position method
+	static randomPosition(limit) {
+		return Math.floor(Math.random() * limit);
 	}
 
 	// Map generation
@@ -125,8 +134,8 @@ class Field {
 		let hatRow, hatCol;
 
 		do {
-			hatRow = Math.floor(Math.random() * height);
-			hatCol = Math.floor(Math.random() * width);
+			hatRow = Field.randomPosition(height);
+			hatCol = Field.randomPosition(width);
 		} while (hatRow === 0 && hatCol === 0);
 
 		field[hatRow][hatCol] = '^';
@@ -134,109 +143,208 @@ class Field {
 		// Set player position randomly
 		let playerRow, playerCol;
 		do {
-			playerRow = Math.floor(Math.random() * height);
-			playerCol = Math.floor(Math.random() * width);
+			playerRow = Field.randomPosition(height);
+			playerCol = Field.randomPosition(width);
 		} while (
 			field[playerRow][playerCol] === 'O' ||
 			field[playerRow][playerCol] === '^'
 		);
 
+		// Set enemy spawn
+		let enemyRow, enemyCol
+		do {
+			enemyRow = Field.randomPosition(height);
+			enemyCol = Field.randomPosition(width);
+		} while (
+			field[enemyRow][enemyCol] === 'O' ||
+			(enemyRow === playerRow && enemyCol === playerCol) ||
+			field[enemyRow][enemyCol] === '^'
+		);
 
 
 		return {
 			field,
 			playerRow,
-			playerCol
+			playerCol,
+			enemyRow,
+			enemyCol
 		};
 	}
 
 	// Pre-made map
 	static getPreMadeMap(size) {
 		if (size === 4) {
-			return [
+			return {
+				field: [
+					['*', 'O', '░', '░'],
+					['░', 'O', '░', '░'],
+					['░', '░', '░', 'O'],
+					['░', 'O', 'O', '^'],
+				],
+				enemyRow: null,
+				enemyCol: null
+			};
+		} else if (size === 5) {
+			return {
+				field: [
+					['*', 'O', '░', 'O', '░'],
+					['░', '░', '░', 'O', '░'],
+					['░', 'O', 'O', '░', 'O'],
+					['O', 'O', '░', 'O', '░'],
+					['O', '^', 'O', '░', '^'],
+				],
+				enemyRow: null,
+				enemyCol: null
+			};
+		} else if (size === 6) {
+			return {
+				field: [
+					['*', 'O', 'O', 'O', '░', '░'],
+					['░', '░', '░', '░', '░', '░'],
+					['O', '░', '░', '░', 'O', '░'],
+					['░', 'O', '░', 'O', 'O', 'O'],
+					['O', 'O', '░', '░', '░', '░'],
+					['░', '^', '░', 'O', 'O', '░'],
+				],
+				enemyRow: 5,
+				enemyCol: 2
+			};
+		}
+
+		// fallback
+		return {
+			field: [
 				['*', 'O', '░', '░'],
 				['░', 'O', '░', '░'],
 				['░', '░', '░', 'O'],
 				['░', 'O', 'O', '^'],
-			];
-		} else if (size === 5) {
-			return [
-				['*', 'O', '░', 'O', '░'],
-				['░', '░', '░', 'O', '░'],
-				['░', 'O', 'O', '░', 'O'],
-				['O', 'O', '░', 'O', '░'],
-				['O', '^', 'O', '░', '^'],
-			];
-		} else if (size === 6) {
-			return [
-				['*', 'O', 'O', 'O', '░', '░'],
-				['░', '░', '░', '░', '░', 'O'],
-				['O', '░', '░', '░', 'O', '░'],
-				['░', 'O', '░', 'O', 'O', '░'],
-				['O', 'O', '░', '░', '░', '░'],
-				['░', '^', '░', 'O', 'O', '░'],
-			]
+			],
+			enemyRow: null,
+			enemyCol: null
+		}
+	}
+
+	// Create getDifficulty to reduce messy logic
+	static getDifficulty(level) {
+		switch (level) {
+			case '1': return {size: 4, jumps: 2, useEnemy: false, allowRandom: true};
+			case '2': return {size: 5, jumps: 2, useEnemy: false, allowRandom: true};
+			case '3': return {size: 6, jumps: 2, useEnemy: true, allowRandom: true};
+			case '4': return {size: 8, jumps: 2, useEnemy: true, allowRandom: false, nightmare: true};
+			default:
+				// Defaulting to Easy mode
+				return {size: 4, jumps: 2, useEnemy: false};
+		}
+	}
+
+	// Create map selection method as well
+	static selectMap(size, mapType) {
+		if (mapType === 'R') {
+			const result = Field.generateField(size, size, 0.4);
+			return {
+				field: result.field,
+				playerRow: result.playerRow,
+				playerCol: result.playerCol,
+				enemyRow: result.enemyRow,
+				enemyCol: result.enemyCol
+			};
+		} else if (mapType === 'P') {
+			const preMade = Field.getPreMadeMap(size);
+			return {
+				field: preMade.field,
+				playerRow: 0,
+				playerCol: 0,
+				enemyRow: preMade.enemyRow,
+				enemyCol: preMade.enemyCol
+			}
+		} else {
+			// fallback
+			console.log("Invalid input. Using pre-made map by default.");
+			const preMade = Field.getPreMadeMap(4);
+			return {
+				field: preMade.field,
+				playerRow: 0,
+				playerCol: 0,
+				enemyRow: preMade.enemyRow,
+				enemyCol: preMade.enemyCol
+			}
+		}
+	}
+
+	// Making enemy hunt player
+	moveEnemy() {
+		if (this.enemyRow === null || this.enemyCol === null) return;
+
+		const directions= [
+			{row: -1, col: 0},
+			{row: 1, col: 0},
+			{row: 0, col: -1},
+			{row: 0, col: 1}
+		];
+
+		// Choose move that reduces distance to player
+		let bestMove = null;
+		let minDistance = Infinity;
+
+		for (const dir of directions) {
+			const newRow = this.enemyRow + dir.row;
+			const newCol = this.enemyCol + dir.col;
+
+			//Boundary check
+			if (
+				newRow < 0 ||newRow >= this.field.length ||
+				newCol < 0 || newCol >= this.field[0].length
+			) continue;
+
+			// Is enemy in Nightmare mode?
+			if (!this.nightmare && this.field[newRow][newCol]==='O') continue;
+
+			const distance = Math.abs(newRow - this.positionRow) + Math.abs(newCol - this.positionCol);
+			if (distance < minDistance) {
+				minDistance = distance;
+				bestMove = {row: newRow, col: newCol};
+			}
+		}
+
+		// Move enemy
+		if (bestMove) {
+			this.enemyRow = bestMove.row;
+			this.enemyCol = bestMove.col;
 		}
 	}
 
 	static menu() {
 		console.log("=== FIND YOUR HAT ===");
-		const difficulty = prompt("Choose difficulty: \n1. Easy\n2. Medium\n3. Hard\n> ").trim();
-		const mapType = prompt("Use Pre-made map (P) or Random map (R)?").toUpperCase();
-	
-		let field;
-		let jumps = 2;
-		let useEnemy = false;
-		let size = 4;
+		const difficulty = prompt("Choose difficulty: \n1. Easy\n2. Medium\n3. Hard\n4. NIGHTMARE (random only)\n> ").trim();
+		// const mapType = prompt("Use Pre-made map (P) or Random map (R)?").toUpperCase();
 
-		// Difficulty settings
-		switch (difficulty) {
-			case '1':
-				jumps = 2;
-				size = 4;
-				break;
-			case '2':
-				jumps = 2;
-				size = 5;
-				break;
-			case '3':
-				jumps = 1;
-				size = 6;
-				useEnemy = true;
-				break;
-			default:
-				console.log("Invalid input. Defaulting to Easy.");
-				jumps = 2;
-				size = 4;
-		}
-
-		// Map selection
-		if (mapType === 'P') {
-			field = Field.getPreMadeMap(size);
-		} else if (mapType === 'R') {
-			const holePercentage = 0.4;
-			const result = Field.generateField(size, size, holePercentage);
-			field = result.field;
-			this.positionRow = result.playerRow;
-			this.positionCol = result.playerCol;
+		const {size, jumps, useEnemy, allowRandom, nightmare} = this.getDifficulty(difficulty);
+		let mapType = 'R';
+		if (allowRandom) {
+			mapType = prompt("Use Pre-made map (P) or Random map (R)?").toUpperCase();
 		} else {
-			console.log("Invalid input. Using pre-made by default.");
-			field = Field.getPreMadeMap(size);
+			console.log("Nightmare mode only allows Random maps. Setting map type to Random.")
 		}
+		
+		const {field, playerRow, playerCol, enemyRow, enemyCol} = this.selectMap(size, mapType);
 
-		// Start game
-		const game = new Field(field, this.positionRow, this.positionCol);
+		const game = new Field(field, playerRow, playerCol);
 		game.jumpsRemaining = jumps;
-		// if (useEnemy) {
-		// 	game.enemyRow = size -1;
-		// 	game.enemyCol = size -1;
-		// }
+		game.nightmare = nightmare || false;
+
+		if (useEnemy && enemyRow !== undefined && enemyCol !== undefined) {
+			game.enemyRow = enemyRow;
+			game.enemyCol = enemyCol;
+		}
 
 		game.startGame();
 	}
 
 	startGame() {
 		this.print();
+		if (this.nightmare) {
+			console.log("NIGHTMARE MODE ACTIVATED — enemy can walk through holes!");
+			}
 		console.log("Use W, A, S, D to move,\n you also can jump with JW, JA, JS, JD\nor X to exit game");
 
 		while (true) {
@@ -248,6 +356,7 @@ class Field {
 				break;
 			}
 
+			// To clear trace before move
 			this.clearTile();
 
 			// Moving logic
@@ -262,7 +371,6 @@ class Field {
 					case 'D': this.moveRight(); break;
 					default:
 						console.log("Invalid input");
-						this.markTile();
 						continue;
 				}
 			}
@@ -270,6 +378,25 @@ class Field {
 			// Check after moved, player's out of bound or not
 			if (!this.checkBoundary()) {
 				console.log("Out of bounds! Game Over");
+				break;
+			}
+
+			// Is player run into enemy arms?
+			if (this.enemyRow !== null &&
+				this.enemyCol !== null &&
+				this.positionRow === this.enemyRow &&
+				this.positionCol === this.enemyCol
+			) {
+				console.log("You ran into enemy! Game Over");
+				break;
+			}
+
+			// It's enemy turn to hunt
+			this.moveEnemy();
+
+			// Check if enemy caught the player
+			if (this.enemyRow === this.positionRow && this.enemyCol === this.positionCol) {
+				console.log("The enemy caught you! Game Over")
 				break;
 			}
 
@@ -284,7 +411,6 @@ class Field {
 			}
 
 			// If game not over yet, continue playing
-			this.markTile();
 			this.print();
 		}
 	}
